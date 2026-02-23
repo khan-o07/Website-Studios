@@ -1,0 +1,91 @@
+# ═══════════════════════════════════════════════════════════
+#      🌐 WEBSITE STUDIOS — Production Configuration
+# ═══════════════════════════════════════════════════════════
+
+spring:
+  # ─── PostgreSQL (Prod - SSL Enforced) ───
+  datasource:
+    url: jdbc:postgresql://${WS_DB_HOST}:${WS_DB_PORT}/${WS_DB_NAME}?sslmode=require
+    username: ${WS_DB_USERNAME}
+    password: ${WS_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      pool-name: WS-Prod-HikariPool
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+  # ─── JPA (Prod) ───
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+  # ─── Redis (Prod) ───
+  data:
+    redis:
+      host: ${WS_REDIS_HOST}
+      port: ${WS_REDIS_PORT:6379}
+      password: ${WS_REDIS_PASSWORD}
+      ssl:
+        enabled: true
+
+  # ─── DevTools Disabled ───
+  devtools:
+    restart:
+      enabled: false
+
+# ─── HTTPS Enforcement ───
+server:
+  ssl:
+    enabled: true
+  forward-headers-strategy: native
+
+# ─── Swagger (DISABLED in Production) ───
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# ─── Logging (Minimal in Prod) ───
+logging:
+  level:
+    root: WARN
+    com.websitestudios: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.security: WARN
+  pattern:
+    console: '{"timestamp":"%d","level":"%p","logger":"%c","message":"%m"}%n'
+
+# ─── Website Studios Security Config (Prod) ───
+ws:
+  security:
+    jwt:
+      secret: ${WS_JWT_SECRET}
+      access-token-expiry: 900000
+      refresh-token-expiry: 43200000
+    recaptcha:
+      secret-key: ${WS_RECAPTCHA_SECRET}
+      site-key: ${WS_RECAPTCHA_SITE_KEY}
+      threshold: 0.7
+    encryption:
+      aes-secret-key: ${WS_AES_SECRET}
+    rate-limit:
+      public-requests-per-minute: 5
+      auth-requests-per-minute: 20
+      login-attempts-per-minute: 3
+    lockout:
+      max-failed-attempts: 5
+      lock-duration-minutes: 60
+
+# ─── Actuator (Minimal in Prod) ───
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never

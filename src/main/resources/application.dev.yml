@@ -1,0 +1,72 @@
+# ═══════════════════════════════════════════════════════════
+#      🌐 WEBSITE STUDIOS — Development Configuration
+# ═══════════════════════════════════════════════════════════
+
+spring:
+  # ─── PostgreSQL (Dev) ───
+  datasource:
+    url: jdbc:postgresql://localhost:5432/website_studios_db
+    username: ${WS_DB_USERNAME:ws_dev_user}
+    password: ${WS_DB_PASSWORD:ws_dev_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      pool-name: WS-Dev-HikariPool
+
+  # ─── JPA (Dev) ───
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  # ─── Redis (Dev) ───
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # ─── DevTools ───
+  devtools:
+    restart:
+      enabled: true
+
+# ─── Swagger (Enabled in Dev) ───
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+# ─── Logging (Verbose in Dev) ───
+logging:
+  level:
+    com.websitestudios: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+    org.springframework.security: DEBUG
+
+# ─── Website Studios Security Config (Dev) ───
+ws:
+  security:
+    jwt:
+      secret: ${WS_JWT_SECRET:dev-secret-key-min-256-bits-long-for-hs256-algo-changeme}
+      access-token-expiry: 3600000
+      refresh-token-expiry: 86400000
+    recaptcha:
+      secret-key: ${WS_RECAPTCHA_SECRET:dev-recaptcha-secret}
+      site-key: ${WS_RECAPTCHA_SITE_KEY:dev-recaptcha-site}
+      threshold: 0.5
+    encryption:
+      aes-secret-key: ${WS_AES_SECRET:dev-aes-256-secret-key-32chars!}
+    rate-limit:
+      public-requests-per-minute: 10
+      auth-requests-per-minute: 30
+      login-attempts-per-minute: 5
+    lockout:
+      max-failed-attempts: 5
+      lock-duration-minutes: 30
