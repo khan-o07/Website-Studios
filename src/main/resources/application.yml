@@ -63,3 +63,10 @@ management:
   info:
     env:
       enabled: false
+
+# src/main/resources/application.yml
+
+ws:
+  security:
+    encryption:
+      aes-secret-key: ${AES_SECRET_KEY:myDefaultDevKeyThatIs32BytesLong!}

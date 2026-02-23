@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * External services (Flyway, Redis, Mail) are excluded since
  * they are not available in the test environment.
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+		"ws.security.encryption.aes-secret-key=TestEncryptionKey32CharactersXX!"
+})
 @EnableAutoConfiguration(exclude = {
 		FlywayAutoConfiguration.class,
 		RedisAutoConfiguration.class,
