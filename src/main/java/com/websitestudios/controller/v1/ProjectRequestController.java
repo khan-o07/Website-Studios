@@ -174,7 +174,7 @@ public class ProjectRequestController {
 
     // ════════════════════════════════════════════════════════════════
     // ADMIN: Get single project request by ID
-    // ════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
 
     /**
      * GET /api/v1/project-requests/{id}
@@ -205,7 +205,7 @@ public class ProjectRequestController {
 
     // ════════════════════════════════════════════════════════════════
     // ADMIN: Update project request status
-    // ════════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════───
 
     /**
      * PUT /api/v1/project-requests/{id}/status
@@ -232,7 +232,6 @@ public class ProjectRequestController {
         log.info("Admin updating status for project request ID: {} to status: {}",
                 id, statusUpdateDTO.getStatus());
 
-        // Parse and validate status enum
         ProjectStatusEnum newStatus;
         try {
             newStatus = ProjectStatusEnum.valueOf(statusUpdateDTO.getStatus().toUpperCase().trim());

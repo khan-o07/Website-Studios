@@ -2,13 +2,17 @@ package com.websitestudios.service.impl;
 
 import com.websitestudios.entity.ProjectRequest;
 import com.websitestudios.enums.ProjectStatusEnum;
+import com.websitestudios.exception.DuplicateRequestException;
+import com.websitestudios.exception.InvalidInputException;
+import com.websitestudios.exception.ResourceNotFoundException;
 import com.websitestudios.repository.ProjectRequestRepository;
 import com.websitestudios.security.encryption.AESEncryptionUtil;
 import com.websitestudios.security.sanitization.InputSanitizer;
 import com.websitestudios.service.ProjectRequestService;
+import com.websitestudios.validator.EmailDomainValidator;
 
-import lombok.extern.slf4j.Slf4j;
-import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,34 +21,39 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
 
 /**
  * Implementation of ProjectRequestService.
  *
- * Handles the complete submission flow:
- * Sanitize → Duplicate Check → Encrypt → Hash → Save
+ * Full submission flow:
+ * Sanitize → Validate Domain → Duplicate Check → Encrypt → Hash → Save
  *
- * TODO Phase 4: Throw proper custom exceptions (ResourceNotFoundException,
- * DuplicateRequestException)
+ * Now uses proper custom exceptions (Phase 4).
+ *
  * TODO Phase 7: reCAPTCHA verification
  * TODO Phase 8: Audit trail logging on status changes
  */
 @Service
 @Transactional
-@Slf4j
 public class ProjectRequestServiceImpl implements ProjectRequestService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProjectRequestServiceImpl.class);
 
     private final ProjectRequestRepository projectRequestRepository;
     private final AESEncryptionUtil encryptionUtil;
     private final InputSanitizer inputSanitizer;
+    private final EmailDomainValidator emailDomainValidator;
 
     public ProjectRequestServiceImpl(ProjectRequestRepository projectRequestRepository,
             AESEncryptionUtil encryptionUtil,
-            InputSanitizer inputSanitizer) {
+            InputSanitizer inputSanitizer,
+            EmailDomainValidator emailDomainValidator) {
         this.projectRequestRepository = projectRequestRepository;
         this.encryptionUtil = encryptionUtil;
         this.inputSanitizer = inputSanitizer;
+        this.emailDomainValidator = emailDomainValidator;
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -57,57 +66,59 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
 
         log.info("Processing new project request submission");
 
-        // Step 1: Sanitize inputs (null-safe)
-        String sanitizedEmail = inputSanitizer.sanitize(rawEmail);
-        sanitizedEmail = sanitizedEmail == null ? "" : sanitizedEmail.toLowerCase().trim();
-
-        String sanitizedPhone = inputSanitizer.sanitize(rawPhone);
-        sanitizedPhone = sanitizedPhone == null ? "" : sanitizedPhone.trim();
-
-        String sanitizedName = inputSanitizer.sanitize(entity.getFullName());
-        sanitizedName = sanitizedName == null ? "" : sanitizedName.trim();
+        // Step 1: Sanitize inputs
+        String sanitizedEmail = inputSanitizer.sanitize(rawEmail).toLowerCase().trim();
+        String sanitizedPhone = inputSanitizer.sanitize(rawPhone).trim();
+        String sanitizedName = inputSanitizer.sanitize(entity.getFullName()).trim();
 
         entity.setFullName(sanitizedName);
 
-        // Step 2: Generate hashes for duplicate check + indexing
+        // Step 2: Validate email domain (block disposable emails)
+        if (!emailDomainValidator.isValidDomain(sanitizedEmail)) {
+            log.warn("Disposable email domain blocked: {}",
+                    emailDomainValidator.extractDomain(sanitizedEmail));
+            throw new InvalidInputException("email",
+                    "Disposable or temporary email addresses are not allowed. Please use a valid email.");
+        }
+
+        // Step 3: Generate hashes for duplicate check + indexing
         String emailHash = sha256Hash(sanitizedEmail);
         String phoneHash = sha256Hash(sanitizedPhone);
 
-        // Step 3: Check for duplicate (same email AND phone, non-deleted)
-        boolean isDuplicate = projectRequestRepository.existsByEmailHashAndPhoneHashAndIsDeletedFalse(
-                emailHash, phoneHash);
+        // Step 4: Check for duplicate (same email AND phone, non-deleted)
+        boolean isDuplicate = projectRequestRepository
+                .existsByEmailHashAndPhoneHashAndIsDeletedFalse(emailHash, phoneHash);
 
         if (isDuplicate) {
             log.warn("Duplicate project request detected for email_hash: {} and phone_hash: {}",
-                    abbreviateHash(emailHash),
-                    abbreviateHash(phoneHash));
-            // TODO Phase 4: throw new DuplicateRequestException("A request with this email
-            // and phone already exists");
-            throw new RuntimeException("Duplicate request: A request with this email and phone already exists");
+                    emailHash.substring(0, 8) + "...",
+                    phoneHash.substring(0, 8) + "...");
+            throw new DuplicateRequestException(
+                    "A project request with this email and phone number already exists. " +
+                            "If you need to update your request, please contact us.");
         }
 
-        // Step 4: Encrypt sensitive fields
+        // Step 5: Encrypt sensitive fields
         try {
             entity.setEmail(encryptionUtil.encrypt(sanitizedEmail));
             entity.setPhoneNumber(encryptionUtil.encrypt(sanitizedPhone));
         } catch (Exception e) {
             log.error("Encryption failed during project request creation", e);
-            throw new RuntimeException("Failed to process request. Please try again.");
+            throw new RuntimeException("Failed to process your request. Please try again later.");
         }
 
-        // Step 5: Set hashes for future lookups
+        // Step 6: Set hashes for future lookups
         entity.setEmailHash(emailHash);
         entity.setPhoneHash(phoneHash);
 
-        // Step 6: Set defaults
+        // Step 7: Set defaults
         entity.setStatus(ProjectStatusEnum.PENDING);
         entity.setIsDeleted(false);
 
-        // Step 7: reCAPTCHA score (TODO Phase 7: actual verification)
-        // entity.setRecaptchaScore(recaptchaService.verify(captchaToken).getScore());
-        entity.setRecaptchaScore(null); // Placeholder
+        // Step 8: reCAPTCHA score (TODO Phase 7: actual verification)
+        entity.setRecaptchaScore(null);
 
-        // Step 8: Save
+        // Step 9: Save
         ProjectRequest savedEntity = projectRequestRepository.save(entity);
 
         log.info("Project request saved successfully with ID: {}", savedEntity.getId());
@@ -124,10 +135,9 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
     public ProjectRequest getProjectRequestById(Long id) {
         log.info("Fetching project request with ID: {}", id);
 
-        // TODO Phase 4: throw new ResourceNotFoundException("Project request not found
-        // with ID: " + id);
         return projectRequestRepository.findByIdAndIsDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Project request not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "ProjectRequest", "id", id));
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -149,7 +159,8 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ProjectRequest> getProjectRequestsByStatus(ProjectStatusEnum status, Pageable pageable) {
+    public Page<ProjectRequest> getProjectRequestsByStatus(ProjectStatusEnum status,
+            Pageable pageable) {
         log.info("Fetching project requests with status: {} - page: {}, size: {}",
                 status, pageable.getPageNumber(), pageable.getPageSize());
 
@@ -175,9 +186,6 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
         log.info("Project request ID: {} status changed from {} to {}",
                 id, oldStatus, newStatus);
 
-        // TODO Phase 8: auditTrailService.logStatusChange(adminId, id, oldStatus,
-        // newStatus);
-
         return updatedEntity;
     }
 
@@ -198,8 +206,6 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
         projectRequestRepository.save(entity);
 
         log.info("Project request ID: {} soft-deleted", id);
-
-        // TODO Phase 8: auditTrailService.logDeletion(adminId, id);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -215,11 +221,6 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
     @Override
     @Transactional(readOnly = true)
     public long getCountByStatus(String status) {
-        if (status == null) {
-            log.warn("Null status provided for count query");
-            return 0;
-        }
-
         try {
             ProjectStatusEnum statusEnum = ProjectStatusEnum.valueOf(status.toUpperCase().trim());
             return projectRequestRepository.countByStatusAndIsDeletedFalse(statusEnum);
@@ -233,15 +234,8 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
     // UTILITY — SHA-256 Hashing
     // ════════════════════════════════════════════════════════════════
 
-    /**
-     * Generate SHA-256 hash of a string.
-     * Used for duplicate detection on encrypted fields.
-     */
     private String sha256Hash(String input) {
         try {
-            if (input == null) {
-                input = "";
-            }
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hashBytes);
@@ -249,14 +243,5 @@ public class ProjectRequestServiceImpl implements ProjectRequestService {
             log.error("SHA-256 algorithm not available", e);
             throw new RuntimeException("Hashing failed — SHA-256 not available");
         }
-    }
-
-    /**
-     * Abbreviate a hex hash safely for logs.
-     */
-    private String abbreviateHash(String hash) {
-        if (hash == null)
-            return "null";
-        return hash.length() > 8 ? hash.substring(0, 8) + "..." : hash;
     }
 }

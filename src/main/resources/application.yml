@@ -1,72 +1,106 @@
-# ═══════════════════════════════════════════════════════════
-#        🌐 WEBSITE STUDIOS — Base Configuration
-# ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
+#  Website Studios API — Base Configuration
+# ═══════════════════════════════════════════════════════════════
+
 spring:
   application:
     name: website-studios-api
+
+  # ──── Active Profile ────
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: dev
 
+  # ──── Database ────
   datasource:
-    # use MySQL compatibility so AUTO_INCREMENT and other MySQL syntax work during tests
-    url: jdbc:h2:mem:testdb;MODE=MYSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
-    driver-class-name: org.h2.Driver
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:website_studios_db}
+    username: ${DB_USERNAME:app_service_user}
+    password: ${DB_PASSWORD:your_password_here}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
 
-  # ─── JPA Configuration ───
+  # ──── JPA / Hibernate ────
   jpa:
-    open-in-view: false
-    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
         jdbc:
-          time_zone: UTC
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
 
-  # ─── Request Size Limit ───
-  servlet:
-    multipart:
-      max-file-size: 1MB
-      max-request-size: 1MB
-
-  # ─── Flyway Migration ───
+  # ──── Flyway ────
   flyway:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
 
-# ─── Server Configuration ───
+  # ──── Jackson ────
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# ──── Server ────
 server:
-  port: 8080
-  servlet:
-    context-path: /
+  port: ${SERVER_PORT:8080}
   error:
     include-message: never
     include-binding-errors: never
     include-stacktrace: never
     include-exception: false
+  tomcat:
+    max-http-form-post-size: 1MB
+    max-swallow-size: 1MB
 
-# ─── API Versioning ───
-api:
-  version: v1
-  base-path: /api/v1
-
-# ─── Actuator (Restricted) ───
+# ──── Actuator ────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
-      base-path: /actuator
+        include: health, info
   endpoint:
     health:
       show-details: never
-  info:
     env:
       enabled: false
+    beans:
+      enabled: false
 
-# src/main/resources/application.yml
+# ──── Logging ────
+logging:
+  level:
+    root: INFO
+    com.websitestudios: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN
+
+# ═══════════════════════════════════════════════════════════════
+#  Website Studios Custom Properties
+# ═══════════════════════════════════════════════════════════════
 
 ws:
+  # ──── CORS ────
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    max-age: 3600
+
+  # ──── Security ────
   security:
     encryption:
-      aes-secret-key: ${AES_SECRET_KEY:myDefaultDevKeyThatIs32BytesLong!}
+      aes-secret-key: ${AES_SECRET_KEY:DevDefaultKey32CharactersLong!!}
+    https:
+      enabled: false
+    max-request-size-bytes: 1048576  # 1MB
+
+  # ──── Swagger ────
+  swagger:
+    server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}

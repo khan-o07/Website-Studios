@@ -1,5 +1,8 @@
 package com.websitestudios.dto.request;
 
+import com.websitestudios.validator.ValidPhoneNumber;
+import com.websitestudios.validator.ValidProjectType;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -11,9 +14,10 @@ import java.util.List;
 /**
  * DTO for public form submission — "Start a Project" form.
  *
- * Standard JSR-303 annotations are applied here.
- * Custom validators (@ValidPhoneNumber, @ValidProjectType) will be added in
- * Phase 4.
+ * Validation layers:
+ * Layer 1: JSR-303 annotations (checked automatically by @Valid)
+ * Layer 2: Custom validators (@ValidPhoneNumber, @ValidProjectType)
+ * Layer 3: Service-level validation (EmailDomainValidator, duplicate check)
  */
 public class ProjectRequestDTO {
 
@@ -22,7 +26,7 @@ public class ProjectRequestDTO {
     private String fullName;
 
     @NotEmpty(message = "At least one service type must be selected")
-    // TODO Phase 4: Add @ValidProjectType (custom validator to check enum values)
+    @ValidProjectType
     private List<String> serviceTypes;
 
     @NotBlank(message = "Country code is required")
@@ -31,7 +35,7 @@ public class ProjectRequestDTO {
 
     @NotBlank(message = "Phone number is required")
     @Size(min = 6, max = 15, message = "Phone number must be between 6 and 15 digits")
-    // TODO Phase 4: Add @ValidPhoneNumber (custom regex validator)
+    @ValidPhoneNumber
     private String phoneNumber;
 
     @NotBlank(message = "Email is required")
@@ -40,8 +44,9 @@ public class ProjectRequestDTO {
     private String email;
 
     @NotBlank(message = "reCAPTCHA token is required")
-    // TODO Phase 7: reCAPTCHA verification logic in service layer
     private String recaptchaToken;
+
+    private String projectDescription;
 
     // ──────────────────────────── Constructors ────────────────────────────
 
@@ -109,9 +114,16 @@ public class ProjectRequestDTO {
         this.recaptchaToken = recaptchaToken;
     }
 
+    public String getProjectDescription() {
+        return projectDescription;
+    }
+
+    public void setProjectDescription(String projectDescription) {
+        this.projectDescription = projectDescription;
+    }
+
     @Override
     public String toString() {
-        // NEVER log sensitive fields — mask them
         return "ProjectRequestDTO{" +
                 "fullName='" + fullName + '\'' +
                 ", serviceTypes=" + serviceTypes +

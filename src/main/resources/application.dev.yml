@@ -1,72 +1,43 @@
-# ═══════════════════════════════════════════════════════════
-#      🌐 WEBSITE STUDIOS — Development Configuration
-# ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
+#  Website Studios API — Development Profile
+# ═══════════════════════════════════════════════════════════════
 
 spring:
-  # ─── PostgreSQL (Dev) ───
-  datasource:
-    url: jdbc:postgresql://localhost:5432/website_studios_db
-    username: ${WS_DB_USERNAME:ws_dev_user}
-    password: ${WS_DB_PASSWORD:ws_dev_password}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 5
-      minimum-idle: 2
-      pool-name: WS-Dev-HikariPool
-
-  # ─── JPA (Dev) ───
   jpa:
-    hibernate:
-      ddl-auto: validate
     show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
 
-  # ─── Redis (Dev) ───
-  data:
-    redis:
-      host: localhost
-      port: 6379
+# ──── Server ────
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
 
-  # ─── DevTools ───
-  devtools:
-    restart:
-      enabled: true
+# ──── Actuator (more endpoints in dev) ────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, mappings
 
-# ─── Swagger (Enabled in Dev) ───
-springdoc:
-  api-docs:
-    enabled: true
-    path: /api-docs
-  swagger-ui:
-    enabled: true
-    path: /swagger-ui.html
-    tags-sorter: alpha
-    operations-sorter: alpha
-
-# ─── Logging (Verbose in Dev) ───
+# ──── Logging (verbose in dev) ────
 logging:
   level:
+    root: INFO
     com.websitestudios: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql: TRACE
     org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
-# ─── Website Studios Security Config (Dev) ───
+# ──── Dev Overrides ────
 ws:
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:5173,http://localhost:4200
   security:
-    jwt:
-      secret: ${WS_JWT_SECRET:dev-secret-key-min-256-bits-long-for-hs256-algo-changeme}
-      access-token-expiry: 3600000
-      refresh-token-expiry: 86400000
-    recaptcha:
-      secret-key: ${WS_RECAPTCHA_SECRET:dev-recaptcha-secret}
-      site-key: ${WS_RECAPTCHA_SITE_KEY:dev-recaptcha-site}
-      threshold: 0.5
-    encryption:
-      aes-secret-key: ${WS_AES_SECRET:dev-aes-256-secret-key-32chars!}
-    rate-limit:
-      public-requests-per-minute: 10
-      auth-requests-per-minute: 30
-      login-attempts-per-minute: 5
-    lockout:
-      max-failed-attempts: 5
-      lock-duration-minutes: 30
+    https:
+      enabled: false
+  swagger:
+    server-url: http://localhost:8080

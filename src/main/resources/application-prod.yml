@@ -1,91 +1,57 @@
-# ═══════════════════════════════════════════════════════════
-#      🌐 WEBSITE STUDIOS — Production Configuration
-# ═══════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
+#  Website Studios API — Production Profile
+# ═══════════════════════════════════════════════════════════════
 
 spring:
-  # ─── PostgreSQL (Prod - SSL Enforced) ───
-  datasource:
-    url: jdbc:postgresql://${WS_DB_HOST}:${WS_DB_PORT}/${WS_DB_NAME}?sslmode=require
-    username: ${WS_DB_USERNAME}
-    password: ${WS_DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      pool-name: WS-Prod-HikariPool
-      max-lifetime: 1800000
-      connection-timeout: 30000
-
-  # ─── JPA (Prod) ───
   jpa:
-    hibernate:
-      ddl-auto: none
     show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
 
-  # ─── Redis (Prod) ───
-  data:
-    redis:
-      host: ${WS_REDIS_HOST}
-      port: ${WS_REDIS_PORT:6379}
-      password: ${WS_REDIS_PASSWORD}
-      ssl:
-        enabled: true
+  # ──── Swagger DISABLED in production ────
+  # The @Profile("dev") on SwaggerConfig already handles this,
+  # but we also disable the springdoc auto-configuration
+  autoconfigure:
+    exclude:
+      - org.springdoc.core.configuration.SpringDocConfiguration
 
-  # ─── DevTools Disabled ───
-  devtools:
-    restart:
-      enabled: false
-
-# ─── HTTPS Enforcement ───
+# ──── Server ────
 server:
-  ssl:
-    enabled: true
-  forward-headers-strategy: native
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
 
-# ─── Swagger (DISABLED in Production) ───
-springdoc:
-  api-docs:
-    enabled: false
-  swagger-ui:
-    enabled: false
-
-# ─── Logging (Minimal in Prod) ───
-logging:
-  level:
-    root: WARN
-    com.websitestudios: INFO
-    org.hibernate.SQL: WARN
-    org.springframework.security: WARN
-  pattern:
-    console: '{"timestamp":"%d","level":"%p","logger":"%c","message":"%m"}%n'
-
-# ─── Website Studios Security Config (Prod) ───
-ws:
-  security:
-    jwt:
-      secret: ${WS_JWT_SECRET}
-      access-token-expiry: 900000
-      refresh-token-expiry: 43200000
-    recaptcha:
-      secret-key: ${WS_RECAPTCHA_SECRET}
-      site-key: ${WS_RECAPTCHA_SITE_KEY}
-      threshold: 0.7
-    encryption:
-      aes-secret-key: ${WS_AES_SECRET}
-    rate-limit:
-      public-requests-per-minute: 5
-      auth-requests-per-minute: 20
-      login-attempts-per-minute: 3
-    lockout:
-      max-failed-attempts: 5
-      lock-duration-minutes: 60
-
-# ─── Actuator (Minimal in Prod) ───
+# ──── Actuator (minimal in prod) ────
 management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health, info, prometheus
   endpoint:
     health:
       show-details: never
+
+# ──── Logging (minimal in prod) ────
+logging:
+  level:
+    root: WARN
+    com.websitestudios: INFO
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+
+# ──── Prod Overrides ────
+ws:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  security:
+    encryption:
+      aes-secret-key: ${AES_SECRET_KEY}
+    https:
+      enabled: true
+    max-request-size-bytes: 1048576
+  swagger:
+    server-url: ${SWAGGER_SERVER_URL:https://api.websitestudios.com}
