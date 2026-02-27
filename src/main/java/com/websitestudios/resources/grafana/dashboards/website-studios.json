@@ -1,0 +1,310 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ],
+  "title": "Website Studios API — Overview",
+  "uid": "ws-api-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["website-studios", "api", "production"],
+
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "type": "query",
+        "query": "label_values(up, environment)",
+        "current": { "value": "production" }
+      }
+    ]
+  },
+
+  "panels": [
+
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "API Status",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "up{job=\"website-studios-api\"}",
+        "legendFormat": "API"
+      }],
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Form Submissions",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "ws_requests_form_submitted_total",
+        "legendFormat": "Total"
+      }],
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Pending Requests",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "ws_requests_pending",
+        "legendFormat": "Pending"
+      }],
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Failed Logins (1h)",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "increase(ws_security_login_failed_total[1h])",
+        "legendFormat": "Failed Logins"
+      }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 25 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Rate Limit Hits (1h)",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "targets": [{
+        "expr": "increase(ws_security_rate_limit_hit_total[1h])",
+        "legendFormat": "Rate Limit Hits"
+      }],
+      "options": { "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "HTTP Request Rate (req/s)",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"website-studios-api\"}[1m])",
+          "legendFormat": "{{method}} {{uri}} - {{status}}"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } },
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Response Time Percentiles (ms)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(http_server_requests_seconds_bucket{job=\"website-studios-api\"}[5m])) * 1000",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"website-studios-api\"}[5m])) * 1000",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"website-studios-api\"}[5m])) * 1000",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Form Submission Pipeline",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(ws_requests_form_submitted_total[5m])",
+          "legendFormat": "Submitted"
+        },
+        {
+          "expr": "rate(ws_requests_form_success_total[5m])",
+          "legendFormat": "Success"
+        },
+        {
+          "expr": "rate(ws_requests_form_duplicate_total[5m])",
+          "legendFormat": "Duplicate"
+        },
+        {
+          "expr": "rate(ws_requests_form_captcha_failed_total[5m])",
+          "legendFormat": "Captcha Failed"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Security Events Timeline",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(ws_security_login_failed_total[5m])",
+          "legendFormat": "Login Failures"
+        },
+        {
+          "expr": "rate(ws_security_rate_limit_hit_total[5m])",
+          "legendFormat": "Rate Limit Hits"
+        },
+        {
+          "expr": "rate(ws_security_invalid_token_total[5m])",
+          "legendFormat": "Invalid Tokens"
+        },
+        {
+          "expr": "rate(ws_security_account_locked_total[5m])",
+          "legendFormat": "Account Lockouts"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "JVM Memory Usage",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\"}",
+          "legendFormat": "Heap Used"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{area=\"heap\"}",
+          "legendFormat": "Heap Max"
+        },
+        {
+          "expr": "jvm_memory_used_bytes{area=\"nonheap\"}",
+          "legendFormat": "Non-Heap Used"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Database Connection Pool",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active",
+          "legendFormat": "Active"
+        },
+        {
+          "expr": "hikaricp_connections_idle",
+          "legendFormat": "Idle"
+        },
+        {
+          "expr": "hikaricp_connections_max",
+          "legendFormat": "Max"
+        },
+        {
+          "expr": "hikaricp_connections_pending",
+          "legendFormat": "Pending"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+
+    {
+      "id": 12,
+      "type": "piechart",
+      "title": "Requests by Status",
+      "gridPos": { "x": 0, "y": 28, "w": 8, "h": 8 },
+      "targets": [{
+        "expr": "ws_db_requests_by_status",
+        "legendFormat": "{{status}}"
+      }],
+      "options": { "pieType": "donut" }
+    },
+
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Form Submission Processing Time",
+      "gridPos": { "x": 8, "y": 28, "w": 16, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(ws_timer_form_submission_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(ws_timer_form_submission_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(ws_timer_form_submission_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    }
+
+  ]
+}

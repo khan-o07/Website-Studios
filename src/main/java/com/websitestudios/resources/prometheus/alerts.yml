@@ -1,0 +1,187 @@
+# ═══════════════════════════════════════════════════════════════
+#  Prometheus Alert Rules — Website Studios API
+# ═══════════════════════════════════════════════════════════════
+
+groups:
+
+  # ── API Availability ──────────────────────────────────────────
+  - name: api_availability
+    rules:
+
+      - alert: ApiDown
+        expr: up{job="website-studios-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team:     backend
+        annotations:
+          summary:     "Website Studios API is DOWN"
+          description: "The API has been unreachable for more than 1 minute."
+          runbook:     "https://wiki.internal/runbooks/api-down"
+
+      - alert: HighErrorRate
+        expr: |
+          rate(http_server_requests_seconds_count{
+            job="website-studios-api",
+            status=~"5.."
+          }[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate detected"
+          description: "5xx error rate is {{ $value | humanizePercentage }} over last 5 minutes."
+
+      - alert: CriticalErrorRate
+        expr: |
+          rate(http_server_requests_seconds_count{
+            job="website-studios-api",
+            status=~"5.."
+          }[5m]) > 0.20
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CRITICAL 5xx error rate"
+          description: "5xx rate is {{ $value | humanizePercentage }}. Immediate action required."
+
+  # ── Response Time ─────────────────────────────────────────────
+  - name: api_latency
+    rules:
+
+      - alert: SlowApiResponse
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_server_requests_seconds_bucket{
+              job="website-studios-api"
+            }[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency above 2 seconds"
+          description: "95th percentile latency is {{ $value | humanizeDuration }}."
+
+      - alert: FormSubmissionSlow
+        expr: |
+          histogram_quantile(0.99,
+            rate(ws_timer_form_submission_seconds_bucket[5m])
+          ) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Form submission p99 latency above 5 seconds"
+          description: "Form submissions are taking {{ $value | humanizeDuration }} at p99."
+
+  # ── Security Events ───────────────────────────────────────────
+  - name: security_events
+    rules:
+
+      - alert: HighLoginFailureRate
+        expr: rate(ws_security_login_failed_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          team:     security
+        annotations:
+          summary: "High login failure rate — possible brute-force attack"
+          description: "{{ $value | humanize }} failed logins per second over 5 minutes."
+
+      - alert: RateLimitSpike
+        expr: rate(ws_security_rate_limit_hit_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limit hit spike detected"
+          description: "{{ $value | humanize }} rate limit hits per second."
+
+      - alert: MultipleAccountLockouts
+        expr: increase(ws_security_account_locked_total[10m]) > 3
+        for: 1m
+        labels:
+          severity: critical
+          team:     security
+        annotations:
+          summary: "Multiple accounts locked — possible credential stuffing"
+          description: "{{ $value }} accounts locked in the last 10 minutes."
+
+      - alert: InvalidTokenSpike
+        expr: rate(ws_security_invalid_token_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of invalid JWT token attempts"
+          description: "{{ $value | humanize }} invalid tokens per second."
+
+  # ── Infrastructure ────────────────────────────────────────────
+  - name: infrastructure
+    rules:
+
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is DOWN"
+          description: "Database has been unreachable for 30 seconds. API will fail."
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis is DOWN"
+          description: "Redis unavailable. Rate limiting falls back to in-memory mode."
+
+      - alert: HighJvmMemory
+        expr: |
+          jvm_memory_used_bytes{area="heap"} /
+          jvm_memory_max_bytes{area="heap"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM heap usage above 85%"
+          description: "Heap usage is {{ $value | humanizePercentage }}. GC pressure likely."
+
+      - alert: JvmOutOfMemoryImminent
+        expr: |
+          jvm_memory_used_bytes{area="heap"} /
+          jvm_memory_max_bytes{area="heap"} > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JVM heap usage CRITICAL (>95%)"
+          description: "OOM risk. Heap at {{ $value | humanizePercentage }}. Restart pod."
+
+  # ── Business Metrics ──────────────────────────────────────────
+  - name: business_metrics
+    rules:
+
+      - alert: FormSubmissionDropped
+        expr: |
+          rate(ws_requests_form_submitted_total[15m]) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No form submissions in 30 minutes"
+          description: "No new project requests received in 30 minutes. Check frontend."
+
+      - alert: HighDuplicateRate
+        expr: |
+          rate(ws_requests_form_duplicate_total[5m]) /
+          rate(ws_requests_form_submitted_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Over 50% of submissions are duplicates"
+          description: "Possible automated form abuse or misconfigured client."

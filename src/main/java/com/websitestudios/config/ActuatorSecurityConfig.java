@@ -2,49 +2,69 @@ package com.websitestudios.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Restricts Spring Boot Actuator endpoints.
+ * Actuator endpoint security — locks down all management endpoints.
  *
- * Actuator exposes sensitive runtime info (env vars, beans, health details).
- * We only expose safe endpoints and restrict the rest.
+ * Public (no auth):
+ * /actuator/health → Used by Kubernetes, load balancers, uptime monitors
+ * /actuator/info → Non-sensitive build info
  *
- * Configuration is primarily via application.yml:
- * management:
- * endpoints:
- * web:
- * exposure:
- * include: health, info, metrics, prometheus
- * endpoint:
- * health:
- * show-details: never ← NEVER show DB connection info publicly
- * env:
- * enabled: false ← NEVER expose environment variables
- * beans:
- * enabled: false ← NEVER expose bean details
+ * Requires SUPER_ADMIN:
+ * /actuator/prometheus → Prometheus metrics scrape endpoint
+ * /actuator/metrics → All metrics data
+ * /actuator/env → Environment variables (sensitive!)
+ * /actuator/loggers → Log level management
+ * /actuator/threaddump → Thread dump (sensitive)
+ * /actuator/heapdump → Heap dump (very sensitive)
  *
- * In Phase 6: Actuator endpoints beyond health/info will require SUPER_ADMIN
- * role.
+ * Blocked entirely:
+ * /actuator/shutdown → NEVER expose this
+ *
+ * @Order(1) — This SecurityFilterChain runs BEFORE the main SecurityConfig
+ * chain.
+ * It handles all requests to /actuator/** exclusively.
  */
 @Configuration
+@Order(1)
 public class ActuatorSecurityConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ActuatorSecurityConfig.class);
 
-    /*
-     * Actuator security is handled via:
-     *
-     * 1. application.yml — controls which endpoints are exposed
-     * 2. SecurityConfig — controls who can access them
-     * 3. Phase 6 — JWT + RBAC will lock down metrics/prometheus to admins
-     *
-     * Currently safe because:
-     * - Only health and info are exposed
-     * - show-details: never (no DB/redis connection info)
-     * - env endpoint is disabled
-     * - beans endpoint is disabled
-     *
-     * This class serves as documentation and a hook for Phase 6 enhancements.
-     */
+    @Bean
+    public SecurityFilterChain actuatorSecurityFilterChain(HttpSecurity http) throws Exception {
+        log.info("Configuring Actuator endpoint security");
+
+        http
+                .securityMatcher(EndpointRequest.toAnyEndpoint())
+                .authorizeHttpRequests(auth -> auth
+
+                        // ── Completely blocked ───────────────────────
+                        .requestMatchers(EndpointRequest.to("shutdown"))
+                        .denyAll()
+
+                        // ── Public endpoints ─────────────────────────
+                        .requestMatchers(EndpointRequest.to("health", "info"))
+                        .permitAll()
+
+                        // ── Prometheus — allows scraping from local network only ──
+                        // In production: Prometheus pod accesses this directly
+                        // Add IP-based restriction at Nginx layer for extra security
+                        .requestMatchers(EndpointRequest.to("prometheus"))
+                        .hasRole("SUPER_ADMIN")
+
+                        // ── All other actuator endpoints ─────────────
+                        .anyRequest()
+                        .hasRole("SUPER_ADMIN"))
+                .csrf(csrf -> csrf.disable())
+                .httpBasic(basic -> basic.disable());
+
+        return http.build();
+    }
 }

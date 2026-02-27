@@ -6,9 +6,14 @@ spring:
   application:
     name: website-studios-api
 
-  # ──── Active Profile ────
   profiles:
     active: dev
+    include:
+      - security
+
+  aop:
+    auto: true
+    proxy-target-class: true
 
   # ──── Database ────
   datasource:
@@ -49,7 +54,30 @@ spring:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null
 
-# ──── Server ────
+  # ──── Scheduling ────
+  scheduling:
+    enabled: true
+
+  # ──── Redis ────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 2000ms
+
+  # ──── Cache (Redis-backed) ────
+  cache:
+    type: redis
+    redis:
+      time-to-live: 86400000
+      cache-null-values: false
+
+# ═══════════════════════════════════════════════════════════════
+#  Server
+# ═══════════════════════════════════════════════════════════════
+
 server:
   port: ${SERVER_PORT:8080}
   error:
@@ -61,21 +89,45 @@ server:
     max-http-form-post-size: 1MB
     max-swallow-size: 1MB
 
-# ──── Actuator ────
+# ═══════════════════════════════════════════════════════════════
+#  Actuator + Prometheus + Metrics
+# ═══════════════════════════════════════════════════════════════
+
 management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        include: health,info,prometheus,metrics,loggers,threaddump
+      base-path: /actuator
+
   endpoint:
     health:
-      show-details: never
-    env:
-      enabled: false
-    beans:
-      enabled: false
+      show-details: when-authorized
+      show-components: when-authorized
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
 
-# ──── Logging ────
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,500ms,1000ms,2000ms
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active:default}
+
+# ═══════════════════════════════════════════════════════════════
+#  Logging
+# ═══════════════════════════════════════════════════════════════
+
 logging:
   level:
     root: INFO
@@ -84,23 +136,38 @@ logging:
     org.hibernate.SQL: WARN
 
 # ═══════════════════════════════════════════════════════════════
-#  Website Studios Custom Properties
+#  Website Studios Custom Config
 # ═══════════════════════════════════════════════════════════════
 
 ws:
-  # ──── CORS ────
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
-    max-age: 3600
+  app:
+    version: ${APP_VERSION:1.0.0}
 
-  # ──── Security ────
-  security:
-    encryption:
-      aes-secret-key: ${AES_SECRET_KEY:DevDefaultKey32CharactersLong!!}
-    https:
-      enabled: false
-    max-request-size-bytes: 1048576  # 1MB
+  metrics:
+    refresh-interval-ms: ${METRICS_REFRESH_INTERVAL:30000}
 
-  # ──── Swagger ────
-  swagger:
-    server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
+  logging:
+    log-requests: ${LOG_REQUESTS:true}
+
+  # ──── Rate Limiting ────
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    public-api-requests-per-minute: ${RATE_LIMIT_PUBLIC:60}
+    form-submit-requests-per-minute: ${RATE_LIMIT_FORM:5}
+    login-requests-per-minute: ${RATE_LIMIT_LOGIN:3}
+    same-contact-cooldown-minutes: ${RATE_LIMIT_COOLDOWN:10}
+
+  # ──── reCAPTCHA ────
+  captcha:
+    enabled: ${CAPTCHA_ENABLED:false}
+    secret-key: ${RECAPTCHA_SECRET_KEY:6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe}
+    site-key: ${RECAPTCHA_SITE_KEY:6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI}
+    verify-url: https://www.google.com/recaptcha/api/siteverify
+    min-score: ${CAPTCHA_MIN_SCORE:0.5}
+
+# ═══════════════════════════════════════════════════════════════
+#  Global Scheduling Toggle
+# ═══════════════════════════════════════════════════════════════
+
+scheduling:
+  enabled: true

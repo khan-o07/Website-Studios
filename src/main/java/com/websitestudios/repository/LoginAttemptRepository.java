@@ -1,29 +1,41 @@
 package com.websitestudios.repository;
 
 import com.websitestudios.entity.LoginAttempt;
+
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Repository for LoginAttempt entity.
- * Used for tracking login attempts and enforcing lockout policy.
+ * Used by AccountLockoutService for tracking login attempts.
  */
 @Repository
 public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long> {
 
-    /**
-     * Count failed login attempts for a username since a given time.
-     */
-    @Query("SELECT COUNT(la) FROM LoginAttempt la WHERE la.username = :username AND la.success = false AND la.attemptedAt > :since")
-    long countRecentFailedAttempts(@Param("username") String username, @Param("since") Instant since);
+        /**
+         * Find failed login attempts for a user after a given timestamp.
+         */
+        List<LoginAttempt> findByUsernameAndSuccessFalseAndAttemptedAtAfter(
+                        String username, Instant after);
 
-    /**
-     * Count failed login attempts from an IP since a given time.
-     */
-    @Query("SELECT COUNT(la) FROM LoginAttempt la WHERE la.ipAddress = :ip AND la.success = false AND la.attemptedAt > :since")
-    long countRecentFailedAttemptsByIp(@Param("ip") String ipAddress, @Param("since") Instant since);
+        /**
+         * Find all attempts by IP address after a given timestamp.
+         */
+        List<LoginAttempt> findByIpAddressAndAttemptedAtAfter(
+                        String ipAddress, Instant after);
+
+        /**
+         * Count failed attempts for a user after a given timestamp.
+         */
+        long countByUsernameAndSuccessFalseAndAttemptedAtAfter(
+                        String username, Instant after);
+
+        /**
+         * Count failed attempts from an IP after a given timestamp.
+         */
+        long countByIpAddressAndSuccessFalseAndAttemptedAtAfter(
+                        String ipAddress, Instant after);
 }

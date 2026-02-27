@@ -1,0 +1,18 @@
+# ═══════════════════════════════════════════════════════════════
+#  Grafana Dashboard Provisioning
+#  Location: /etc/grafana/provisioning/dashboards/dashboards.yml
+# ═══════════════════════════════════════════════════════════════
+
+apiVersion: 1
+
+providers:
+  - name: 'Website Studios'
+    orgId: 1
+    folder: 'Website Studios'
+    type: file
+    disableDeletion: true    # Prevent accidental dashboard deletion via UI
+    updateIntervalSeconds: 30
+    allowUiUpdates: false    # Force all changes through code (GitOps)
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

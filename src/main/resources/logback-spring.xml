@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         Website Studios API — Structured Logging Configuration
+         ═══════════════════════════════════════════════════════════ -->
+
+    <springProperty scope="context" name="appName"
+                    source="spring.application.name"
+                    defaultValue="website-studios-api"/>
+
+    <!-- ── DEVELOPMENT: Human-readable console output ── -->
+    <springProfile name="dev,default">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>
+                    %d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n
+                </pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <logger name="com.websitestudios" level="DEBUG"/>
+        <logger name="org.springframework.security" level="DEBUG"/>
+    </springProfile>
+
+    <!-- ── PRODUCTION: Structured JSON output ── -->
+    <springProfile name="prod">
+
+        <!-- Console JSON appender (for container log collection) -->
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"app":"${appName}","env":"prod"}</customFields>
+                <includeMdc>true</includeMdc>
+                <fieldNames>
+                    <timestamp>timestamp</timestamp>
+                    <message>message</message>
+                    <logger>logger</logger>
+                    <thread>thread</thread>
+                    <levelValue>[ignore]</levelValue>
+                </fieldNames>
+            </encoder>
+        </appender>
+
+        <!-- Rolling file appender for persistent logs -->
+        <appender name="ROLLING_FILE"
+                  class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>/var/log/websitestudios/app.log</file>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"app":"${appName}","env":"prod"}</customFields>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>/var/log/websitestudios/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <timeBasedFileNamingAndTriggeringPolicy
+                        class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                    <maxFileSize>50MB</maxFileSize>
+                </timeBasedFileNamingAndTriggeringPolicy>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+
+        <!-- Security events get their own log file -->
+        <appender name="SECURITY_FILE"
+                  class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>/var/log/websitestudios/security.log</file>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"app":"${appName}","type":"security"}</customFields>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>/var/log/websitestudios/security.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+                <maxHistory>90</maxHistory>
+            </rollingPolicy>
+        </appender>
+
+        <!-- Filter for security logger -->
+        <logger name="com.websitestudios.logging.SecurityEventLogger"
+                level="INFO" additivity="false">
+            <appender-ref ref="SECURITY_FILE"/>
+            <appender-ref ref="JSON_CONSOLE"/>
+        </logger>
+
+        <!-- Audit logger -->
+        <logger name="com.websitestudios.service.impl.AuditTrailServiceImpl"
+                level="INFO" additivity="false">
+            <appender-ref ref="ROLLING_FILE"/>
+            <appender-ref ref="JSON_CONSOLE"/>
+        </logger>
+
+        <root level="WARN">
+            <appender-ref ref="JSON_CONSOLE"/>
+            <appender-ref ref="ROLLING_FILE"/>
+        </root>
+
+        <logger name="com.websitestudios" level="INFO"/>
+    </springProfile>
+
+</configuration>

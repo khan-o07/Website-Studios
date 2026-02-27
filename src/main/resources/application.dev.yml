@@ -33,11 +33,12 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 # ──── Dev Overrides ────
+# ── Phase 7 dev overrides ────────────────────────────────────────
+
 ws:
-  cors:
-    allowed-origins: http://localhost:3000,http://localhost:5173,http://localhost:4200
-  security:
-    https:
-      enabled: false
-  swagger:
-    server-url: http://localhost:8080
+  rate-limit:
+    enabled: false          # Disable rate limiting in dev for easy testing
+    form-submit-requests-per-minute: 100
+
+  captcha:
+    enabled: false          # Disable reCAPTCHA in dev

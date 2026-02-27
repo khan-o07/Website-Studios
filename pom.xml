@@ -99,6 +99,13 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
+        <!-- Logstash Logback Encoder for structured JSON logs (prod) -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
+
 
         <!-- ─────────── DATABASE ─────────── -->
 
@@ -150,12 +157,52 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- JWT (JJWT) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Spring Security (should already be present) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
         <!-- Jsoup (HTML Sanitization / XSS Prevention) -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
         </dependency>
+
+        <!-- Micrometer Prometheus registry — exposes metrics at /actuator/prometheus -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Actuator — /actuator/* management endpoints -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Enable @Scheduled for WsDatabaseMetrics -->
+        <!-- Already included with spring-boot-starter — no extra dependency needed -->
 
 
         <!-- ─────────── RATE LIMITING ─────────── -->
@@ -251,6 +298,25 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Bucket4j Rate Limiting -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>8.10.1</version>
+        </dependency>
+
+        <!-- Spring Data Redis + Lettuce client -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Spring Cache abstraction -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
     </dependencies>
 
     <!-- ═══════════════════════════════════════════════════════ -->
@@ -266,6 +332,8 @@
                 <scope>import</scope>
             </dependency>
         </dependencies>
+
+
     </dependencyManagement>
 
     <!-- ═══════════════════════════════════════════════════════ -->

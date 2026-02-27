@@ -8,45 +8,33 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Optional;
 
 /**
  * Repository for ProjectRequest entity.
- * All queries automatically filter out soft-deleted records.
- *
- * Uses parameterized queries (Spring Data JPA) — SQL injection safe.
+ * Updated in Phase 7: Added cooldown window query for
+ * DuplicateRequestThrottler.
  */
 @Repository
 public interface ProjectRequestRepository extends JpaRepository<ProjectRequest, Long> {
 
-    /**
-     * Check if a non-deleted request exists with matching email AND phone hashes.
-     * Used for duplicate detection.
-     */
     boolean existsByEmailHashAndPhoneHashAndIsDeletedFalse(String emailHash, String phoneHash);
 
     /**
-     * Find a non-deleted request by ID.
+     * NEW in Phase 7: Check for recent submission within a time window.
+     * Used by DuplicateRequestThrottler for cooldown enforcement.
      */
+    boolean existsByEmailHashAndPhoneHashAndIsDeletedFalseAndCreatedAtAfter(
+            String emailHash, String phoneHash, Instant after);
+
     Optional<ProjectRequest> findByIdAndIsDeletedFalse(Long id);
 
-    /**
-     * Find all non-deleted requests (paginated).
-     */
     Page<ProjectRequest> findByIsDeletedFalse(Pageable pageable);
 
-    /**
-     * Find non-deleted requests filtered by status (paginated).
-     */
     Page<ProjectRequest> findByStatusAndIsDeletedFalse(ProjectStatusEnum status, Pageable pageable);
 
-    /**
-     * Count all non-deleted requests.
-     */
     long countByIsDeletedFalse();
 
-    /**
-     * Count non-deleted requests by status.
-     */
     long countByStatusAndIsDeletedFalse(ProjectStatusEnum status);
 }

@@ -1,6 +1,6 @@
 package com.websitestudios.exception;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * Thrown when an admin account is locked due to excessive failed login
@@ -15,19 +15,19 @@ import java.time.LocalDateTime;
  */
 public class AccountLockedException extends RuntimeException {
 
-    private final LocalDateTime lockExpiresAt;
+    private final Instant lockExpiresAt;
 
     public AccountLockedException(String message) {
         super(message);
         this.lockExpiresAt = null;
     }
 
-    public AccountLockedException(String message, LocalDateTime lockExpiresAt) {
+    public AccountLockedException(String message, Instant lockExpiresAt) {
         super(message);
         this.lockExpiresAt = lockExpiresAt;
     }
 
-    public LocalDateTime getLockExpiresAt() {
+    public Instant getLockExpiresAt() {
         return lockExpiresAt;
     }
 }
